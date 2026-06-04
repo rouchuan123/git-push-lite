@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -24,6 +25,41 @@ def _should_open_node(node: SelectionNode, open_paths: set[str] | None) -> bool:
     if open_paths is None:
         return "/" not in node.path
     return node.path in open_paths
+
+
+@dataclass(frozen=True)
+class StatusSummary:
+    repository: str
+    branch: str
+    origin: str
+    git: str
+    selected: str
+
+
+def _selected_change_count(selection_root: SelectionNode) -> int:
+    return len(selected_paths(selection_root))
+
+
+def _status_summary(
+    repo_path: Path | None,
+    branch: str,
+    remote_url: str,
+    git_available: bool,
+    selection_root: SelectionNode,
+) -> StatusSummary:
+    repository = str(repo_path) if repo_path else "未选择仓库"
+    branch_text = branch.strip() or "未设置分支"
+    origin = "origin 已配置" if remote_url.strip() else "origin 未配置"
+    git = "Git 可用" if git_available else "Git 不可用"
+    selected_count = _selected_change_count(selection_root)
+    selected = f"{selected_count} 个变更已选" if selected_count else "未选择变更"
+    return StatusSummary(
+        repository=repository,
+        branch=branch_text,
+        origin=origin,
+        git=git,
+        selected=selected,
+    )
 
 
 class GitHubHQApp:
