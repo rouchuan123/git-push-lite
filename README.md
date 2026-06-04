@@ -2,7 +2,7 @@
 
 GitHub HQ is a lightweight Windows desktop tool for committing and pushing a local folder to GitHub.
 
-## Run From Source
+## Run From Source 
 
 ```powershell
 $env:PYTHONPATH="src"
