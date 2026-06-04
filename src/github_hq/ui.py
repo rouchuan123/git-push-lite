@@ -246,24 +246,47 @@ class GitHubHQApp:
         self.change_tree.bind("<Button-1>", self._on_tree_click)
 
     def _build_action_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="提交与推送", padding=8)
-        frame.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(frame, text="备注").pack(side=tk.LEFT)
+        frame = ttk.Frame(parent, style="Surface.TFrame", padding=10)
+        frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(frame, text="提交备注", background="#ffffff").pack(side=tk.LEFT)
         ttk.Entry(frame, textvariable=self.commit_message_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8)
-        self.commit_button = ttk.Button(frame, text="提交", command=self._commit)
-        self.push_button = ttk.Button(frame, text="推送", command=self._push)
-        self.commit_push_button = ttk.Button(frame, text="提交并推送", command=self._commit_and_push)
-        self.pull_button = ttk.Button(frame, text="拉取远程更新", command=self._pull)
-        for button in (self.commit_button, self.push_button, self.commit_push_button, self.pull_button):
+        self.commit_button = ttk.Button(frame, text="提交", command=self._commit, style="Secondary.TButton")
+        self.push_button = ttk.Button(frame, text="推送", command=self._push, style="Secondary.TButton")
+        self.pull_button = ttk.Button(frame, text="拉取远程更新", command=self._pull, style="Secondary.TButton")
+        self.commit_push_button = ttk.Button(
+            frame,
+            text="提交并推送",
+            command=self._commit_and_push,
+            style="Primary.TButton",
+        )
+        for button in (self.commit_button, self.push_button, self.pull_button, self.commit_push_button):
             button.pack(side=tk.LEFT, padx=3)
 
     def _build_output_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="输出与日志", padding=8)
+        frame = ttk.Frame(parent, style="App.TFrame")
         frame.pack(fill=tk.BOTH, expand=True)
-        self.output_text = tk.Text(frame, height=8)
-        self.output_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.log_list = tk.Listbox(frame, width=48)
-        self.log_list.pack(side=tk.LEFT, fill=tk.BOTH, padx=(8, 0))
+        frame.columnconfigure(0, weight=3)
+        frame.columnconfigure(1, weight=2)
+        frame.rowconfigure(0, weight=1)
+
+        output_frame = ttk.LabelFrame(frame, text="Git 输出", padding=10, style="Card.TLabelframe")
+        output_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 10))
+        self.output_text = tk.Text(
+            output_frame,
+            height=8,
+            bg="#172033",
+            fg="#e5edf7",
+            insertbackground="#e5edf7",
+            relief=tk.FLAT,
+            padx=10,
+            pady=8,
+        )
+        self.output_text.pack(fill=tk.BOTH, expand=True)
+
+        log_frame = ttk.LabelFrame(frame, text="最近提交", padding=10, style="Card.TLabelframe")
+        log_frame.grid(row=0, column=1, sticky=tk.NSEW)
+        self.log_list = tk.Listbox(log_frame, width=42, relief=tk.FLAT, highlightthickness=1)
+        self.log_list.pack(fill=tk.BOTH, expand=True)
         self.log_list.bind("<Double-Button-1>", self._copy_selected_log)
 
     def _append_output(self, title: str, output: str = "") -> None:
