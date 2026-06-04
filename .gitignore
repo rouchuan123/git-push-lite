@@ -1,0 +1,9 @@
+.superpowers/
+%TEMP%/
+.worktrees/
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+docs/

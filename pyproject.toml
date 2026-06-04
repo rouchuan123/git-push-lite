@@ -1,0 +1,9 @@
+[project]
+name = "github-hq"
+version = "0.1.0"
+description = "Lightweight Windows GitHub commit and push desktop tool"
+requires-python = ">=3.11"
+
+[tool.github-hq]
+test-command = "python -m unittest discover -s tests -v"
+entrypoint = "python -m github_hq"
