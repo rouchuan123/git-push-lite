@@ -81,13 +81,42 @@ class GitHubHQApp:
         self.remote_url_var = tk.StringVar()
         self.commit_message_var = tk.StringVar()
         self.status_var = tk.StringVar(value="请选择文件夹")
+        self.git_available = False
+        self.summary_repository_var = tk.StringVar(value="未选择仓库")
+        self.summary_branch_var = tk.StringVar(value="未设置分支")
+        self.summary_origin_var = tk.StringVar(value="origin 未配置")
+        self.summary_git_var = tk.StringVar(value="Git 检测中")
+        self.summary_selected_var = tk.StringVar(value="未选择变更")
 
+        self._configure_styles()
         self._build_layout()
         self._refresh_recent_folders()
         self._check_git()
 
     def run(self) -> None:
         self.root.mainloop()
+
+    def _configure_styles(self) -> None:
+        style = ttk.Style(self.root)
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+        self.root.configure(bg="#f5f7fb")
+        style.configure("App.TFrame", background="#f5f7fb")
+        style.configure("Surface.TFrame", background="#ffffff")
+        style.configure("Soft.TFrame", background="#f8fafc")
+        style.configure("Card.TLabelframe", background="#ffffff", bordercolor="#d8e0ea", relief=tk.SOLID)
+        style.configure(
+            "Card.TLabelframe.Label",
+            background="#ffffff",
+            foreground="#1f2937",
+            font=("Segoe UI", 10, "bold"),
+        )
+        style.configure("Title.TLabel", background="#f5f7fb", foreground="#111827", font=("Segoe UI", 18, "bold"))
+        style.configure("Subtitle.TLabel", background="#f5f7fb", foreground="#64748b", font=("Segoe UI", 9))
+        style.configure("SummaryTitle.TLabel", background="#ffffff", foreground="#64748b", font=("Segoe UI", 8))
+        style.configure("SummaryValue.TLabel", background="#ffffff", foreground="#111827", font=("Segoe UI", 10, "bold"))
+        style.configure("Primary.TButton", font=("Segoe UI", 10, "bold"), padding=(12, 7))
+        style.configure("Secondary.TButton", padding=(10, 7))
 
     def _build_layout(self) -> None:
         main = ttk.Frame(self.root, padding=10)
