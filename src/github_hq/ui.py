@@ -119,59 +119,111 @@ class GitHubHQApp:
         style.configure("Secondary.TButton", padding=(10, 7))
 
     def _build_layout(self) -> None:
-        main = ttk.Frame(self.root, padding=10)
+        main = ttk.Frame(self.root, style="App.TFrame", padding=14)
         main.pack(fill=tk.BOTH, expand=True)
 
+        header = ttk.Frame(main, style="App.TFrame")
+        header.pack(fill=tk.X, pady=(0, 12))
+        ttk.Label(header, text="GitHub HQ", style="Title.TLabel").pack(side=tk.LEFT)
+        ttk.Label(
+            header,
+            text="轻量提交与推送工具",
+            style="Subtitle.TLabel",
+        ).pack(side=tk.LEFT, padx=(12, 0), pady=(8, 0))
+
         self._build_folder_section(main)
-        self._build_status_section(main)
-        self._build_config_section(main)
-        self._build_change_section(main)
+        self._build_summary_section(main)
+        self._build_work_section(main)
         self._build_action_section(main)
         self._build_output_section(main)
 
     def _build_folder_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="仓库选择", padding=8)
-        frame.pack(fill=tk.X, pady=(0, 8))
+        frame = ttk.Frame(parent, style="Surface.TFrame", padding=10)
+        frame.pack(fill=tk.X, pady=(0, 10))
         ttk.Entry(frame, textvariable=self.folder_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-        ttk.Button(frame, text="选择文件夹", command=self._choose_folder).pack(side=tk.LEFT)
-        ttk.Label(frame, text=" 最近: ").pack(side=tk.LEFT)
+        ttk.Button(frame, text="选择文件夹", command=self._choose_folder, style="Secondary.TButton").pack(side=tk.LEFT)
+        ttk.Label(frame, text=" 最近: ", background="#ffffff").pack(side=tk.LEFT)
         self.recent_combo = ttk.Combobox(frame, state="readonly", width=28)
         self.recent_combo.pack(side=tk.LEFT, padx=(0, 8))
         self.recent_combo.bind("<<ComboboxSelected>>", self._select_recent_folder)
-        ttk.Button(frame, text="刷新", command=self._refresh_repository).pack(side=tk.LEFT)
+        ttk.Button(frame, text="刷新", command=self._refresh_repository, style="Secondary.TButton").pack(side=tk.LEFT)
 
-    def _build_status_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="当前状态", padding=8)
-        frame.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(frame, textvariable=self.status_var).pack(anchor=tk.W)
+    def _build_summary_section(self, parent: ttk.Frame) -> None:
+        frame = ttk.Frame(parent, style="App.TFrame")
+        frame.pack(fill=tk.X, pady=(0, 10))
+        cards = (
+            ("仓库", self.summary_repository_var),
+            ("分支", self.summary_branch_var),
+            ("远程", self.summary_origin_var),
+            ("Git", self.summary_git_var),
+            ("选择", self.summary_selected_var),
+        )
+        for title, variable in cards:
+            self._summary_card(frame, title, variable).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+
+    def _summary_card(self, parent: ttk.Frame, title: str, variable: tk.StringVar) -> ttk.Frame:
+        card = ttk.Frame(parent, style="Surface.TFrame", padding=(10, 8))
+        ttk.Label(card, text=title, style="SummaryTitle.TLabel").pack(anchor=tk.W)
+        ttk.Label(card, textvariable=variable, style="SummaryValue.TLabel").pack(anchor=tk.W)
+        return card
+
+    def _build_work_section(self, parent: ttk.Frame) -> None:
+        frame = ttk.Frame(parent, style="App.TFrame")
+        frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        frame.columnconfigure(0, weight=3)
+        frame.columnconfigure(1, weight=2)
+        frame.rowconfigure(0, weight=1)
+
+        self._build_change_section(frame)
+        self._build_config_section(frame)
 
     def _build_config_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="身份 / 远程 / 分支", padding=8)
-        frame.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(frame, text="用户名").grid(row=0, column=0, sticky=tk.W)
-        ttk.Entry(frame, textvariable=self.name_var, width=24).grid(row=0, column=1, padx=6)
-        ttk.Label(frame, text="邮箱").grid(row=0, column=2, sticky=tk.W)
-        ttk.Entry(frame, textvariable=self.email_var, width=30).grid(row=0, column=3, padx=6)
-        ttk.Radiobutton(frame, text="当前仓库", variable=self.identity_scope_var, value="repository").grid(row=0, column=4)
-        ttk.Radiobutton(frame, text="全局", variable=self.identity_scope_var, value="global").grid(row=0, column=5)
-        ttk.Button(frame, text="保存身份", command=self._save_identity).grid(row=0, column=6, padx=6)
-        ttk.Label(frame, text="origin").grid(row=1, column=0, sticky=tk.W, pady=(8, 0))
-        ttk.Entry(frame, textvariable=self.remote_url_var, width=60).grid(
-            row=1,
-            column=1,
-            columnspan=3,
-            sticky=tk.EW,
-            padx=6,
-            pady=(8, 0),
-        )
-        ttk.Button(frame, text="保存远程", command=self._save_origin).grid(row=1, column=4, pady=(8, 0))
-        ttk.Label(frame, text="分支").grid(row=1, column=5, sticky=tk.E, pady=(8, 0))
-        ttk.Entry(frame, textvariable=self.branch_var, width=16).grid(row=1, column=6, padx=6, pady=(8, 0))
-        frame.columnconfigure(3, weight=1)
+        frame = ttk.LabelFrame(parent, text="身份 / 远程 / 分支", padding=10, style="Card.TLabelframe")
+        frame.grid(row=0, column=1, sticky=tk.NSEW)
+        frame.columnconfigure(1, weight=1)
+
+        ttk.Label(frame, text="用户名", background="#ffffff").grid(row=0, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(frame, textvariable=self.name_var).grid(row=0, column=1, sticky=tk.EW, pady=(0, 6))
+
+        ttk.Label(frame, text="邮箱", background="#ffffff").grid(row=1, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(frame, textvariable=self.email_var).grid(row=1, column=1, sticky=tk.EW, pady=(0, 6))
+
+        scope_frame = ttk.Frame(frame, style="Surface.TFrame")
+        scope_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(2, 10))
+        ttk.Radiobutton(
+            scope_frame,
+            text="当前仓库",
+            variable=self.identity_scope_var,
+            value="repository",
+        ).pack(side=tk.LEFT)
+        ttk.Radiobutton(
+            scope_frame,
+            text="全局",
+            variable=self.identity_scope_var,
+            value="global",
+        ).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(
+            frame,
+            text="保存身份",
+            command=self._save_identity,
+            style="Secondary.TButton",
+        ).grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14))
+
+        ttk.Label(frame, text="origin", background="#ffffff").grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(frame, textvariable=self.remote_url_var).grid(row=5, column=0, columnspan=2, sticky=tk.EW, pady=(0, 6))
+        ttk.Button(
+            frame,
+            text="保存远程",
+            command=self._save_origin,
+            style="Secondary.TButton",
+        ).grid(row=6, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14))
+
+        ttk.Label(frame, text="分支", background="#ffffff").grid(row=7, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(frame, textvariable=self.branch_var).grid(row=7, column=1, sticky=tk.EW, pady=(0, 6))
 
     def _build_change_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="变更选择", padding=8)
-        frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        frame = ttk.LabelFrame(parent, text="变更选择", padding=10, style="Card.TLabelframe")
+        frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 10))
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X, pady=(0, 6))
         ttk.Button(toolbar, text="全选", command=self._select_all_changes).pack(side=tk.LEFT)
