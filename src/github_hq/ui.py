@@ -275,12 +275,15 @@ class GitHubHQApp:
     def _check_git(self) -> None:
         result = self.service.git_version()
         if result.ok:
+            self.git_available = True
             self._append_output("Git 可用", result.stdout.strip())
             self._set_actions_enabled(True)
         else:
+            self.git_available = False
             self.status_var.set("未检测到 Git，请安装 Git for Windows")
             self._append_output("Git 不可用", result.output)
             self._set_actions_enabled(False)
+        self._refresh_summary()
 
     def _set_actions_enabled(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
@@ -300,6 +303,20 @@ class GitHubHQApp:
     def _refresh_recent_folders(self) -> None:
         self.recent_combo["values"] = self.config.recent_folders
 
+    def _refresh_summary(self) -> None:
+        summary = _status_summary(
+            repo_path=self.repo_path,
+            branch=self.branch_var.get(),
+            remote_url=self.remote_url_var.get(),
+            git_available=self.git_available,
+            selection_root=self.selection_root,
+        )
+        self.summary_repository_var.set(summary.repository)
+        self.summary_branch_var.set(summary.branch)
+        self.summary_origin_var.set(summary.origin)
+        self.summary_git_var.set(summary.git)
+        self.summary_selected_var.set(summary.selected)
+
     def _load_folder(self, folder: Path) -> None:
         self.repo_path = folder
         self.folder_var.set(str(folder))
@@ -311,6 +328,7 @@ class GitHubHQApp:
     def _refresh_repository(self) -> None:
         if not self.repo_path:
             self.status_var.set("请选择文件夹")
+            self._refresh_summary()
             return
         if not self.service.is_repository(self.repo_path):
             if messagebox.askyesno("初始化仓库", "当前文件夹还不是 Git 仓库，是否执行 git init？"):
@@ -330,6 +348,7 @@ class GitHubHQApp:
         )
         self._refresh_changes()
         self._refresh_logs()
+        self._refresh_summary()
 
     def _save_identity(self) -> None:
         if not self.repo_path:
@@ -400,6 +419,7 @@ class GitHubHQApp:
         set_checked(self.selection_root, checked)
         refresh_parent_state(self.selection_root)
         self._render_change_tree()
+        self._refresh_summary()
 
     def _refresh_logs(self) -> None:
         self.log_list.delete(0, tk.END)
@@ -422,6 +442,7 @@ class GitHubHQApp:
         toggle_node_selection(node)
         refresh_parent_state(self.selection_root)
         self._render_change_tree()
+        self._refresh_summary()
         return "break"
 
     def _selected_paths(self) -> list[str]:
