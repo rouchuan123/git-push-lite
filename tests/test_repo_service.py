@@ -62,6 +62,32 @@ class RepoServiceTests(unittest.TestCase):
 
         self.assertEqual(runner.calls[0][0], ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
 
+    def test_lists_local_branches_with_current_marker_removed(self):
+        runner = FakeRunner()
+        runner.queue(CommandResult(("git", "branch", "--format", "%(refname:short)"), Path("C:/repo"), 0, "  main\n* feature/login\n  release\n", ""))
+        service = RepoService(runner)
+
+        branches = service.list_branches(Path("C:/repo"))
+
+        self.assertEqual(branches, ["main", "feature/login", "release"])
+        self.assertEqual(runner.calls[0][0], ["branch", "--format", "%(refname:short)"])
+
+    def test_merges_selected_branch_into_current_branch(self):
+        runner = FakeRunner()
+        service = RepoService(runner)
+
+        service.merge_branch(Path("C:/repo"), "feature/login")
+
+        self.assertEqual(runner.calls[0][0], ["merge", "--no-edit", "feature/login"])
+
+    def test_deletes_branch_safely(self):
+        runner = FakeRunner()
+        service = RepoService(runner)
+
+        service.delete_branch(Path("C:/repo"), "feature/login")
+
+        self.assertEqual(runner.calls[0][0], ["branch", "-d", "feature/login"])
+
 
 if __name__ == "__main__":
     unittest.main()

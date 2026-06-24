@@ -2,7 +2,13 @@ import unittest
 from pathlib import Path
 
 from github_hq.models import SelectionNode
-from github_hq.ui import GitHubHQApp, _selected_change_count, _status_summary
+from github_hq.ui import (
+    GitHubHQApp,
+    _branch_list_summary,
+    _can_delete_branch,
+    _selected_change_count,
+    _status_summary,
+)
 
 
 class DummyVar:
@@ -78,6 +84,34 @@ class UiSummaryTests(unittest.TestCase):
         self.assertEqual(summary.origin, "origin 已配置")
         self.assertEqual(summary.git, "Git 可用")
         self.assertEqual(summary.selected, "1 个变更已选")
+
+    def test_branch_list_summary_names_current_and_count(self):
+        summary = _branch_list_summary(["main", "feature/login", "release"], "feature/login")
+
+        self.assertEqual(summary, "当前: feature/login · 共 3 个分支")
+
+    def test_branch_list_summary_handles_empty_repository(self):
+        summary = _branch_list_summary([], "")
+
+        self.assertEqual(summary, "还没有可显示的分支")
+
+    def test_can_delete_branch_rejects_current_branch(self):
+        can_delete, message = _can_delete_branch("main", "main")
+
+        self.assertFalse(can_delete)
+        self.assertEqual(message, "不能删除当前正在使用的分支，请先切换到其他分支")
+
+    def test_can_delete_branch_rejects_missing_selection(self):
+        can_delete, message = _can_delete_branch("", "main")
+
+        self.assertFalse(can_delete)
+        self.assertEqual(message, "请先选择要删除的分支")
+
+    def test_can_delete_branch_allows_non_current_branch(self):
+        can_delete, message = _can_delete_branch("feature/login", "main")
+
+        self.assertTrue(can_delete)
+        self.assertEqual(message, "")
 
     def test_refresh_summary_updates_dashboard_variables(self):
         selection_root = SelectionNode(

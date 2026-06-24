@@ -62,6 +62,47 @@ def _status_summary(
     )
 
 
+def _branch_list_summary(branches: list[str], current_branch: str) -> str:
+    if not branches:
+        return "还没有可显示的分支"
+    current = current_branch.strip() or "未设置"
+    return f"当前: {current} · 共 {len(branches)} 个分支"
+
+
+def _can_delete_branch(branch: str, current_branch: str) -> tuple[bool, str]:
+    branch = branch.strip()
+    current_branch = current_branch.strip()
+    if not branch:
+        return False, "请先选择要删除的分支"
+    if branch == current_branch:
+        return False, "不能删除当前正在使用的分支，请先切换到其他分支"
+    return True, ""
+
+
+def _layout_section_order() -> tuple[str, ...]:
+    return ("folder", "summary", "action", "work", "output")
+
+
+def _work_section_column_weights() -> tuple[int, int]:
+    return (2, 2)
+
+
+def _change_tree_column_widths() -> dict[str, int]:
+    return {"name": 180, "state": 88, "path": 360}
+
+
+def _change_tree_row_count() -> int:
+    return 8
+
+
+def _output_text_row_count() -> int:
+    return 6
+
+
+def _settings_section_tabs() -> tuple[str, str]:
+    return ("身份 / 远程", "分支管理")
+
+
 class GitHubHQApp:
     def __init__(self) -> None:
         self.root = tk.Tk()
@@ -75,6 +116,8 @@ class GitHubHQApp:
 
         self.folder_var = tk.StringVar()
         self.branch_var = tk.StringVar(value=self.config.last_branch)
+        self.selected_branch_var = tk.StringVar()
+        self.new_branch_var = tk.StringVar()
         self.name_var = tk.StringVar()
         self.email_var = tk.StringVar()
         self.identity_scope_var = tk.StringVar(value=self.config.last_identity_scope)
@@ -87,6 +130,7 @@ class GitHubHQApp:
         self.summary_origin_var = tk.StringVar(value="origin 未配置")
         self.summary_git_var = tk.StringVar(value="Git 检测中")
         self.summary_selected_var = tk.StringVar(value="未选择变更")
+        self.branch_list_summary_var = tk.StringVar(value="还没有可显示的分支")
 
         self._configure_styles()
         self._build_layout()
@@ -131,11 +175,15 @@ class GitHubHQApp:
             style="Subtitle.TLabel",
         ).pack(side=tk.LEFT, padx=(12, 0), pady=(8, 0))
 
-        self._build_folder_section(main)
-        self._build_summary_section(main)
-        self._build_work_section(main)
-        self._build_action_section(main)
-        self._build_output_section(main)
+        builders = {
+            "folder": self._build_folder_section,
+            "summary": self._build_summary_section,
+            "action": self._build_action_section,
+            "work": self._build_work_section,
+            "output": self._build_output_section,
+        }
+        for section in _layout_section_order():
+            builders[section](main)
 
     def _build_folder_section(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Surface.TFrame", padding=10)
@@ -170,25 +218,39 @@ class GitHubHQApp:
     def _build_work_section(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="App.TFrame")
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        frame.columnconfigure(0, weight=3)
-        frame.columnconfigure(1, weight=2)
+        change_weight, config_weight = _work_section_column_weights()
+        frame.columnconfigure(0, weight=change_weight)
+        frame.columnconfigure(1, weight=config_weight)
         frame.rowconfigure(0, weight=1)
 
         self._build_change_section(frame)
         self._build_config_section(frame)
 
     def _build_config_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="身份 / 远程 / 分支", padding=10, style="Card.TLabelframe")
+        frame = ttk.LabelFrame(parent, text="仓库设置 / 分支管理", padding=10, style="Card.TLabelframe")
         frame.grid(row=0, column=1, sticky=tk.NSEW)
-        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
 
-        ttk.Label(frame, text="用户名", background="#ffffff").grid(row=0, column=0, sticky=tk.W, pady=(0, 6))
-        ttk.Entry(frame, textvariable=self.name_var).grid(row=0, column=1, sticky=tk.EW, pady=(0, 6))
+        identity_title, branch_title = _settings_section_tabs()
+        notebook = ttk.Notebook(frame)
+        notebook.grid(row=0, column=0, sticky=tk.NSEW)
 
-        ttk.Label(frame, text="邮箱", background="#ffffff").grid(row=1, column=0, sticky=tk.W, pady=(0, 6))
-        ttk.Entry(frame, textvariable=self.email_var).grid(row=1, column=1, sticky=tk.EW, pady=(0, 6))
+        identity_frame = ttk.Frame(notebook, style="Surface.TFrame", padding=10)
+        identity_frame.columnconfigure(1, weight=1)
+        notebook.add(identity_frame, text=identity_title)
 
-        scope_frame = ttk.Frame(frame, style="Surface.TFrame")
+        branch_frame = ttk.Frame(notebook, style="Surface.TFrame", padding=10)
+        branch_frame.columnconfigure(1, weight=1)
+        notebook.add(branch_frame, text=branch_title)
+
+        ttk.Label(identity_frame, text="用户名", background="#ffffff").grid(row=0, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(identity_frame, textvariable=self.name_var).grid(row=0, column=1, sticky=tk.EW, pady=(0, 6))
+
+        ttk.Label(identity_frame, text="邮箱", background="#ffffff").grid(row=1, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(identity_frame, textvariable=self.email_var).grid(row=1, column=1, sticky=tk.EW, pady=(0, 6))
+
+        scope_frame = ttk.Frame(identity_frame, style="Surface.TFrame")
         scope_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(2, 10))
         ttk.Radiobutton(
             scope_frame,
@@ -203,23 +265,95 @@ class GitHubHQApp:
             value="global",
         ).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(
-            frame,
+            identity_frame,
             text="保存身份",
             command=self._save_identity,
             style="Secondary.TButton",
         ).grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14))
 
-        ttk.Label(frame, text="origin", background="#ffffff").grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(0, 6))
-        ttk.Entry(frame, textvariable=self.remote_url_var).grid(row=5, column=0, columnspan=2, sticky=tk.EW, pady=(0, 6))
+        ttk.Label(identity_frame, text="origin", background="#ffffff").grid(
+            row=4,
+            column=0,
+            columnspan=2,
+            sticky=tk.W,
+            pady=(0, 6),
+        )
+        ttk.Entry(identity_frame, textvariable=self.remote_url_var).grid(
+            row=5,
+            column=0,
+            columnspan=2,
+            sticky=tk.EW,
+            pady=(0, 6),
+        )
         ttk.Button(
-            frame,
+            identity_frame,
             text="保存远程",
             command=self._save_origin,
             style="Secondary.TButton",
-        ).grid(row=6, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14))
+        ).grid(row=6, column=0, columnspan=2, sticky=tk.EW)
 
-        ttk.Label(frame, text="分支", background="#ffffff").grid(row=7, column=0, sticky=tk.W, pady=(0, 6))
-        ttk.Entry(frame, textvariable=self.branch_var).grid(row=7, column=1, sticky=tk.EW, pady=(0, 6))
+        ttk.Label(branch_frame, text="当前分支", background="#ffffff").grid(row=0, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(branch_frame, textvariable=self.branch_var, state="readonly").grid(
+            row=0,
+            column=1,
+            sticky=tk.EW,
+            pady=(0, 6),
+        )
+
+        ttk.Label(branch_frame, textvariable=self.branch_list_summary_var, background="#ffffff", foreground="#64748b").grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky=tk.W,
+            pady=(0, 6),
+        )
+
+        ttk.Label(branch_frame, text="选择分支", background="#ffffff").grid(row=2, column=0, sticky=tk.W, pady=(0, 6))
+        self.branch_combo = ttk.Combobox(branch_frame, textvariable=self.selected_branch_var, state="readonly")
+        self.branch_combo.grid(row=2, column=1, sticky=tk.EW, pady=(0, 6))
+        self.branch_combo.bind("<<ComboboxSelected>>", self._select_branch_from_combo)
+
+        branch_actions = ttk.Frame(branch_frame, style="Surface.TFrame")
+        branch_actions.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(0, 12))
+        branch_actions.columnconfigure(0, weight=1)
+        branch_actions.columnconfigure(1, weight=1)
+        branch_actions.columnconfigure(2, weight=1)
+        self.switch_branch_button = ttk.Button(
+            branch_actions,
+            text="切换到选中分支",
+            command=self._switch_selected_branch,
+            style="Secondary.TButton",
+        )
+        self.merge_branch_button = ttk.Button(
+            branch_actions,
+            text="合并到当前分支",
+            command=self._merge_selected_branch,
+            style="Secondary.TButton",
+        )
+        self.delete_branch_button = ttk.Button(
+            branch_actions,
+            text="删除选中分支",
+            command=self._delete_selected_branch,
+            style="Secondary.TButton",
+        )
+        self.switch_branch_button.grid(row=0, column=0, sticky=tk.EW, padx=(0, 4))
+        self.merge_branch_button.grid(row=0, column=1, sticky=tk.EW, padx=4)
+        self.delete_branch_button.grid(row=0, column=2, sticky=tk.EW, padx=(4, 0))
+
+        ttk.Label(branch_frame, text="新分支名称", background="#ffffff").grid(row=4, column=0, sticky=tk.W, pady=(0, 6))
+        ttk.Entry(branch_frame, textvariable=self.new_branch_var).grid(
+            row=4,
+            column=1,
+            sticky=tk.EW,
+            pady=(0, 6),
+        )
+        self.create_branch_button = ttk.Button(
+            branch_frame,
+            text="创建并切换到新分支",
+            command=self._create_named_branch,
+            style="Primary.TButton",
+        )
+        self.create_branch_button.grid(row=5, column=0, columnspan=2, sticky=tk.EW)
 
     def _build_change_section(self, parent: ttk.Frame) -> None:
         frame = ttk.LabelFrame(parent, text="变更选择", padding=10, style="Card.TLabelframe")
@@ -233,15 +367,16 @@ class GitHubHQApp:
             frame,
             columns=("state", "path"),
             show="tree headings",
-            height=12,
+            height=_change_tree_row_count(),
             selectmode="none",
         )
         self.change_tree.heading("#0", text="名称")
         self.change_tree.heading("state", text="选择")
         self.change_tree.heading("path", text="路径")
-        self.change_tree.column("#0", width=260, minwidth=180, stretch=True)
-        self.change_tree.column("state", width=96, minwidth=88, stretch=False, anchor=tk.CENTER)
-        self.change_tree.column("path", width=560, minwidth=260, stretch=True)
+        widths = _change_tree_column_widths()
+        self.change_tree.column("#0", width=widths["name"], minwidth=140, stretch=True)
+        self.change_tree.column("state", width=widths["state"], minwidth=80, stretch=False, anchor=tk.CENTER)
+        self.change_tree.column("path", width=widths["path"], minwidth=220, stretch=True)
         self.change_tree.pack(fill=tk.BOTH, expand=True)
         self.change_tree.bind("<Button-1>", self._on_tree_click)
 
@@ -273,7 +408,7 @@ class GitHubHQApp:
         output_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 10))
         self.output_text = tk.Text(
             output_frame,
-            height=8,
+            height=_output_text_row_count(),
             bg="#172033",
             fg="#e5edf7",
             insertbackground="#e5edf7",
@@ -310,7 +445,16 @@ class GitHubHQApp:
 
     def _set_actions_enabled(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
-        for button in (self.commit_button, self.push_button, self.commit_push_button, self.pull_button):
+        for button in (
+            self.commit_button,
+            self.push_button,
+            self.commit_push_button,
+            self.pull_button,
+            self.switch_branch_button,
+            self.merge_branch_button,
+            self.delete_branch_button,
+            self.create_branch_button,
+        ):
             button.configure(state=state)
 
     def _choose_folder(self) -> None:
@@ -340,6 +484,23 @@ class GitHubHQApp:
         self.summary_git_var.set(summary.git)
         self.summary_selected_var.set(summary.selected)
 
+    def _refresh_branch_list(self) -> None:
+        if not self.repo_path:
+            self.branch_combo["values"] = []
+            self.branch_list_summary_var.set("还没有可显示的分支")
+            self.selected_branch_var.set("")
+            return
+        branches = self.service.list_branches(self.repo_path)
+        current = self.branch_var.get().strip()
+        self.branch_combo["values"] = branches
+        self.branch_list_summary_var.set(_branch_list_summary(branches, current))
+        if current in branches:
+            self.selected_branch_var.set(current)
+        elif branches:
+            self.selected_branch_var.set(branches[0])
+        else:
+            self.selected_branch_var.set("")
+
     def _load_folder(self, folder: Path) -> None:
         self.repo_path = folder
         self.folder_var.set(str(folder))
@@ -351,6 +512,7 @@ class GitHubHQApp:
     def _refresh_repository(self) -> None:
         if not self.repo_path:
             self.status_var.set("请选择文件夹")
+            self._refresh_branch_list()
             self._refresh_summary()
             return
         if not self.service.is_repository(self.repo_path):
@@ -359,6 +521,10 @@ class GitHubHQApp:
                 self._append_output("初始化仓库", result.output or "git init 完成")
             else:
                 self.status_var.set("当前文件夹不是 Git 仓库")
+                self.branch_combo["values"] = []
+                self.branch_list_summary_var.set("还没有可显示的分支")
+                self.selected_branch_var.set("")
+                self._refresh_summary()
                 return
 
         branch = self.service.current_branch(self.repo_path) or self.branch_var.get()
@@ -366,6 +532,7 @@ class GitHubHQApp:
         self.name_var.set(self.service.get_config(self.repo_path, "user.name"))
         self.email_var.set(self.service.get_config(self.repo_path, "user.email"))
         self.remote_url_var.set(self.service.get_origin_url(self.repo_path))
+        self._refresh_branch_list()
         self.status_var.set(
             f"仓库: {self.repo_path} | 分支: {self.branch_var.get()} | origin: {self.remote_url_var.get() or '未配置'}"
         )
@@ -397,6 +564,102 @@ class GitHubHQApp:
         else:
             messagebox.showerror("远程地址错误", result.output)
             self._append_output("保存远程失败", result.output)
+
+    def _select_branch_from_combo(self, _event: object) -> None:
+        selected = self.selected_branch_var.get().strip()
+        if selected:
+            self._append_output("选择分支", f"已选择 {selected}，还没有切换。需要切换时点击“切换到选中分支”。")
+
+    def _selected_branch_name(self) -> str:
+        return self.selected_branch_var.get().strip()
+
+    def _create_named_branch(self) -> None:
+        if not self.repo_path:
+            messagebox.showwarning("缺少仓库", "请先选择文件夹")
+            return
+        branch = self.new_branch_var.get().strip()
+        if not branch:
+            messagebox.showwarning("缺少分支名", "请填写新分支名称，例如 feature/login")
+            return
+        if self.service.branch_exists(self.repo_path, branch):
+            messagebox.showwarning("分支已存在", f"{branch} 已经存在，可以直接切换到它")
+            self.selected_branch_var.set(branch)
+            return
+        result = self.service.create_branch(self.repo_path, branch)
+        self._append_output("创建并切换分支", result.output or f"已创建并切换到 {branch}")
+        if result.ok:
+            self.new_branch_var.set("")
+            self.branch_var.set(branch)
+            self.config.last_branch = branch
+            save_config(self.config)
+            self._refresh_repository()
+        else:
+            messagebox.showerror("创建分支失败", result.output)
+
+    def _switch_selected_branch(self) -> None:
+        if not self.repo_path:
+            messagebox.showwarning("缺少仓库", "请先选择文件夹")
+            return
+        branch = self._selected_branch_name()
+        if not branch:
+            messagebox.showwarning("缺少分支", "请先在“选择分支”里选一个分支")
+            return
+        if branch == self.branch_var.get().strip():
+            self._append_output("切换分支", f"已经在 {branch} 分支上")
+            return
+        result = self.service.switch_branch(self.repo_path, branch)
+        self._append_output("切换分支", result.output or f"已切换到 {branch}")
+        if result.ok:
+            self.branch_var.set(branch)
+            self.config.last_branch = branch
+            save_config(self.config)
+            self._refresh_repository()
+        else:
+            messagebox.showerror("切换分支失败", result.output)
+
+    def _merge_selected_branch(self) -> None:
+        if not self.repo_path:
+            messagebox.showwarning("缺少仓库", "请先选择文件夹")
+            return
+        branch = self._selected_branch_name()
+        current = self.branch_var.get().strip()
+        if not branch:
+            messagebox.showwarning("缺少分支", "请先选择要合并的分支")
+            return
+        if branch == current:
+            messagebox.showwarning("不能合并自己", "请选择另一个分支合并到当前分支")
+            return
+        if not messagebox.askyesno(
+            "确认合并分支",
+            f"将把“{branch}”里的提交合并到当前分支“{current}”。如果出现冲突，Git 会停止并提示需要手动处理。继续吗？",
+        ):
+            return
+        result = self.service.merge_branch(self.repo_path, branch)
+        self._append_output("合并分支", result.output or f"已把 {branch} 合并到 {current}")
+        if not result.ok:
+            messagebox.showerror("合并失败", result.output or "合并时发生错误，请查看 Git 输出")
+        self._refresh_repository()
+
+    def _delete_selected_branch(self) -> None:
+        if not self.repo_path:
+            messagebox.showwarning("缺少仓库", "请先选择文件夹")
+            return
+        branch = self._selected_branch_name()
+        current = self.branch_var.get().strip()
+        can_delete, reason = _can_delete_branch(branch, current)
+        if not can_delete:
+            messagebox.showwarning("不能删除分支", reason)
+            return
+        if not messagebox.askyesno(
+            "确认删除分支",
+            f"确定删除“{branch}”吗？这里使用安全删除；如果 Git 发现它还没有合并，会拒绝删除。",
+        ):
+            return
+        result = self.service.delete_branch(self.repo_path, branch)
+        self._append_output("删除分支", result.output or f"已删除 {branch}")
+        if not result.ok:
+            messagebox.showerror("删除分支失败", result.output or "Git 拒绝删除这个分支")
+        self._refresh_repository()
 
     def _refresh_changes(self) -> None:
         if not self.repo_path:
@@ -477,22 +740,17 @@ class GitHubHQApp:
             return False
         branch = self.branch_var.get().strip()
         if not branch:
-            messagebox.showwarning("缺少分支", "请填写分支名")
+            messagebox.showwarning("缺少分支", "当前仓库还没有可用分支，请先创建一个分支")
             return False
         self.config.last_branch = branch
         save_config(self.config)
         current = self.service.current_branch(self.repo_path)
-        if current == branch:
-            return True
-        if self.service.branch_exists(self.repo_path, branch):
-            result = self.service.switch_branch(self.repo_path, branch)
-            self._append_output("切换分支", result.output or f"已切换到 {branch}")
-            return result.ok
-        if messagebox.askyesno("创建分支", f"分支 {branch} 不存在，是否创建并切换？"):
-            result = self.service.create_branch(self.repo_path, branch)
-            self._append_output("创建分支", result.output or f"已创建 {branch}")
-            return result.ok
-        return False
+        if current and current != branch:
+            self.branch_var.set(current)
+            self.config.last_branch = current
+            save_config(self.config)
+            self._refresh_summary()
+        return True
 
     def _commit(self) -> bool:
         if not self.repo_path:

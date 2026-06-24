@@ -64,6 +64,12 @@ class RepoService:
         result = self.runner.run(["branch", "--show-current"], cwd=repo_path)
         return result.stdout.strip() if result.ok else ""
 
+    def list_branches(self, repo_path: Path) -> list[str]:
+        result = self.runner.run(["branch", "--format", "%(refname:short)"], cwd=repo_path)
+        if not result.ok:
+            return []
+        return [line.strip().lstrip("*").strip() for line in result.stdout.splitlines() if line.strip()]
+
     def branch_exists(self, repo_path: Path, branch: str) -> bool:
         result = self.runner.run(["branch", "--list", branch], cwd=repo_path)
         return bool(result.stdout.strip())
@@ -73,6 +79,12 @@ class RepoService:
 
     def create_branch(self, repo_path: Path, branch: str) -> CommandResult:
         return self.runner.run(["switch", "-c", branch], cwd=repo_path)
+
+    def merge_branch(self, repo_path: Path, branch: str) -> CommandResult:
+        return self.runner.run(["merge", "--no-edit", branch], cwd=repo_path, timeout_seconds=300)
+
+    def delete_branch(self, repo_path: Path, branch: str) -> CommandResult:
+        return self.runner.run(["branch", "-d", branch], cwd=repo_path)
 
     def status_entries(self, repo_path: Path) -> list[GitStatusEntry]:
         result = self.runner.run(["status", "--porcelain=v1", "-z", "--untracked-files=all"], cwd=repo_path)
